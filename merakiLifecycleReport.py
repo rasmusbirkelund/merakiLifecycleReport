@@ -161,7 +161,8 @@ This script will create an HTML file with lists for each selected organization, 
         org_map = map(targetOrgs.__getitem__, int_choice)
         org_list = list(org_map)
 
-    # FILTER_FOR_DATE = str(input("Enter year to filter: ")) or None
+    # Filter out rows with EoL Year greater than FILTER_FOR_DATE
+    FILTER_FOR_DATE = str(input("Enter year filter (press Enter for none): ")) or None
 
     # Get License status
     for org in org_list:
@@ -240,9 +241,9 @@ This script will create an HTML file with lists for each selected organization, 
             eol_report = eol_report.sort_values(by=["Total Units"], ascending=False)
 
             # Filter for year, if set.
-            # if FILTER_FOR_DATE is not None:
-            #     filter = eol_report['End-of-Support Date'].str.contains(FILTER_FOR_DATE)
-            #     eol_report = eol_report[filter]
+            if FILTER_FOR_DATE is not None:
+                filter = eol_report['End-of-Support Date'].str[-4:] <= FILTER_FOR_DATE
+                eol_report = eol_report[filter]
 
             # Drop index column
             eol_report = eol_report.reset_index(drop=True)
