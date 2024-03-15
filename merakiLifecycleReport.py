@@ -66,11 +66,30 @@ def CleanUpEolTable(p_eol_df):
     new_eol_df = p_eol_df[mask].copy()
 
     # Generate entries for specific submodels to count properly
+    ## MX64 and MX64W
+    mx64_row = new_eol_df.loc[new_eol_df['Product'].str.contains("MX64")].copy()
+    mx64_row['Product'] = "MX64"
     new_eol_df.replace(to_replace='MX64, MX64W', value = 'MX64W', inplace=True)
-    new_eol_df.replace(to_replace='MS220-8', value = 'MS220-8P', inplace=True)
-    new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
+    new_eol_df = new_eol_df._append(mx64_row)
+    
+    ## MV21 and MV71
+    # new_eol_df.replace('MV21*', 'MV71', regex=True, inplace=True)
+    mv21_row = new_eol_df.loc[new_eol_df['Product'].str.contains("MV21")].copy()
+    mv21_row['Product'] = "MV21"
     new_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV71', inplace=True)
-    new_eol_df.replace('MV21*', 'MV71', regex=True, inplace=True)
+    new_eol_df = new_eol_df._append(mv21_row)
+    
+    ## MS220
+    new_eol_df.replace(to_replace='MS220-8', value = 'MS220-8P', inplace=True)
+
+    ## MX65
+    # new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
+    mx65_row = new_eol_df.loc[new_eol_df['Product'].str.contains("MX65")].copy()
+    mx65_row['Product'] = "MX65"
+    new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
+    new_eol_df = new_eol_df._append(mx65_row)
+    
+    # new_eol_df['Product'] = new_eol_df['Product'].apply(lambda x: x.strip())
 
     # Split up MS220 and MS320 switches in their specific submodels for proper counting
     ms220_mask = new_eol_df['Product'].str.contains('MS220\xa0series', case=False, na=False)
@@ -97,10 +116,12 @@ def CleanUpEolTable(p_eol_df):
     ms320_48fp_row["Product"]="MS320-48FP"
 
     # Concatenate everything
-    new_eol_df = pd.concat([new_eol_df,ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
+    new_eol_df = new_eol_df._append([ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
+    # new_eol_df = pd.concat([new_eol_df,ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
     new_eol_df = new_eol_df[new_eol_df["Product"].str.contains("series")==False]
-    final_eol_df = pd.DataFrame()
-    final_eol_df = pd.concat([p_eol_df, new_eol_df])
+    # final_eol_df = pd.DataFrame()
+    final_eol_df = p_eol_df._append(new_eol_df)
+    # final_eol_df = pd.concat([p_eol_df, new_eol_df])
     final_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV21', inplace=True)
 
     return final_eol_df
@@ -236,8 +257,10 @@ This script will create an HTML file with lists for each selected organization, 
 
             final_eol_df['Unassigned Units']=final_eol_df['Product'].map(inventory_unassigned_df['model'].value_counts())
             final_eol_df['Assigned Units']=final_eol_df['Product'].map(inventory_assigned_df['model'].value_counts())
+            final_eol_df = final_eol_df.fillna(0)
             final_eol_df['Total Units']=final_eol_df['Assigned Units'] + final_eol_df['Unassigned Units']
-            eol_report = final_eol_df.dropna()
+            # eol_report = final_eol_df.dropna()
+            eol_report = final_eol_df[final_eol_df['Total Units'] != 0.0]
             eol_report = eol_report.sort_values(by=["Total Units"], ascending=False)
 
             # Filter for year, if set.
