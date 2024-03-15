@@ -1,1 +1,3 @@
 *.code-workspace
+lifecycle_report.html
+*.py.old

@@ -20,20 +20,92 @@ import requests
 import bs4 as bs
 import jinja2
 
-def main():
-    header = """Python script to generate Lifecyle Report for Meraki organizations.\n
-This script will create an HTML file with lists for each selected organization, which may contain Meraki hardware with EoL announcement.
-"""
-    footer = f"Made by {__author__}"
-    parser = argparse.ArgumentParser(
-        description=header,
-        epilog=footer,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("--api_key", help="API Key")
-    args = parser.parse_args()
-    config = vars(args)
+def GetAvailableOrganizations(p_dashboard):
+    # Pick organizations you want to fetch inventory from
+    print("Getting all organizations, and checking accessibility..")
+    orgs = p_dashboard.organizations.getOrganizations()
+    targetOrgs = []
+    for org in orgs:
+        if org['api']['enabled'] is True:
+            if len(org['management']['details']) == 0:
+                targetOrgs.append(org)
+            else:
+                for mgmt in org['management']['details']:
+                    if mgmt['value'] == 'client allowed':
+                        #print("Client allowed :)")
+                        targetOrgs.append(org)
+                    elif mgmt['value'] == 'client blocked':
+                        print(f"\tOrg: {org['name']} - Client blocked :( -- Ignored...")
+                        #print(f"\t{org['name']} access denied!\t Reason: {org['management']['details'][0]['name']}")
+                    else:
+                        print(f"\t{org['name']} access denied!\t Reason: {mgmt['name']} - {mgmt['value']}")
+                        # raise SystemError(f"Unknown error {mgmt['name']} - {mgmt['value']}")
+    print("Done!")
+    return targetOrgs
 
+def InstantiateMerakiObject(p_apikey=None):
+    # Instantiate Meraki Dashboard object
+    if p_apikey is None:
+        print("Using with system var API Key")
+        dashboard = meraki.DashboardAPI(
+            suppress_logging=True
+        )
+    else:
+        print(f"Using API Key ***{p_apikey[-4:]} ")
+        dashboard = meraki.DashboardAPI(p_apikey,
+            suppress_logging=True
+        )
+    return dashboard
+
+
+def CleanUpEolTable(p_eol_df):
+    # Split SKUs that had joint announcements
+    pattern = 'MV21|MX64|MX65|MS220-8|series'
+    mask = p_eol_df['Product'].str.contains(pattern, case=False, na=False)
+
+    new_eol_df = p_eol_df[mask].copy()
+
+    # Generate entries for specific submodels to count properly
+    new_eol_df.replace(to_replace='MX64, MX64W', value = 'MX64W', inplace=True)
+    new_eol_df.replace(to_replace='MS220-8', value = 'MS220-8P', inplace=True)
+    new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
+    new_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV71', inplace=True)
+    new_eol_df.replace('MV21*', 'MV71', regex=True, inplace=True)
+
+    # Split up MS220 and MS320 switches in their specific submodels for proper counting
+    ms220_mask = new_eol_df['Product'].str.contains('MS220\xa0series', case=False, na=False)
+    ms320_mask = new_eol_df['Product'].str.contains('MS320\xa0series', case=False, na=False)
+    ms220_24_row = new_eol_df[ms220_mask].copy()
+    ms220_24_row["Product"]="MS220-24"
+    ms220_24p_row = new_eol_df[ms220_mask].copy()
+    ms220_24p_row["Product"]="MS220-24P"
+    ms220_48_row = new_eol_df[ms220_mask].copy()
+    ms220_48_row["Product"]="MS220-48"
+    ms220_48lp_row = new_eol_df[ms220_mask].copy()
+    ms220_48lp_row["Product"]="MS220-48LP"
+    ms220_48fp_row = new_eol_df[ms220_mask].copy()
+    ms220_48fp_row["Product"]="MS220-48FP"
+    ms320_24_row = new_eol_df[ms320_mask].copy()
+    ms320_24_row["Product"]="MS320-24"
+    ms320_24p_row = new_eol_df[ms320_mask].copy()
+    ms320_24p_row["Product"]="MS320-24P"
+    ms320_48_row = new_eol_df[ms320_mask].copy()
+    ms320_48_row["Product"]="MS320-48"
+    ms320_48lp_row = new_eol_df[ms320_mask].copy()
+    ms320_48lp_row["Product"]="MS320-48LP"
+    ms320_48fp_row = new_eol_df[ms320_mask].copy()
+    ms320_48fp_row["Product"]="MS320-48FP"
+
+    # Concatenate everything
+    new_eol_df = pd.concat([new_eol_df,ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
+    new_eol_df = new_eol_df[new_eol_df["Product"].str.contains("series")==False]
+    final_eol_df = pd.DataFrame()
+    final_eol_df = pd.concat([p_eol_df, new_eol_df])
+    final_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV21', inplace=True)
+
+    return final_eol_df
+
+def GetEolList():
     # Get table from EoL page
     url = 'https://documentation.meraki.com/General_Administration/Other_Topics/Meraki_End-of-Life_(EOL)_Products_and_Dates'
     dfs = pd.read_html(url)
@@ -55,40 +127,25 @@ This script will create an HTML file with lists for each selected organization, 
     # Add links to dataframe
     eol_df = dfs[0]
     eol_df['Upgrade Path'] = links
+    return eol_df
 
-    # Instantiate Meraki Dashboard object
-    if config['api_key'] is None:
-        print("Using with system var API Key")
-        dashboard = meraki.DashboardAPI(
-            suppress_logging=True
-        )
-    else:
-        print(f"Using API Key ***{config['api_key'][-4:]} ")
-        dashboard = meraki.DashboardAPI(config['api_key'],
-            suppress_logging=True
-        )
+def main():
+    header = """Python script to generate Lifecyle Report for Meraki organizations.\n
+This script will create an HTML file with lists for each selected organization, which may contain Meraki hardware with EoL announcement.
+"""
+    footer = f"Made by {__author__}"
+    parser = argparse.ArgumentParser(
+        description=header,
+        epilog=footer,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("--api_key", help="API Key")
+    args = parser.parse_args()
+    config = vars(args)
 
-    # Pick organizations you want to fetch inventory from
-    print("Getting all organizations, and checking accessibility..")
-    orgs = dashboard.organizations.getOrganizations()
-    targetOrgs = []
-    for org in orgs:
-        if org['api']['enabled'] is True:
-            if len(org['management']['details']) == 0:
-                targetOrgs.append(org)
-            else:
-                for mgmt in org['management']['details']:
-                    if mgmt['value'] == 'client allowed':
-                        #print("Client allowed :)")
-                        targetOrgs.append(org)
-                    elif mgmt['value'] == 'client blocked':
-                        print(f"Org: {org['name']} - Client blocked :(")
-                        #print(f"\t{org['name']} access denied!\t Reason: {org['management']['details'][0]['name']}")
-                    else:
-                        print(f"\t{org['name']} access denied!\t Reason: {mgmt['name']} - {mgmt['value']}")
-                        # raise SystemError(f"Unknown error {mgmt['name']} - {mgmt['value']}")
+    dashboard = InstantiateMerakiObject(config['api_key'])
 
-    print("Done!")
+    targetOrgs = GetAvailableOrganizations(dashboard)    
     
     print("\nYour API Key has access to the following organizations:")
     i = 1
@@ -104,7 +161,7 @@ This script will create an HTML file with lists for each selected organization, 
         org_map = map(targetOrgs.__getitem__, int_choice)
         org_list = list(org_map)
 
-    FILTER_FOR_DATE = str(input("Enter year to filter: ")) or None
+    # FILTER_FOR_DATE = str(input("Enter year to filter: ")) or None
 
     # Get License status
     for org in org_list:
@@ -149,6 +206,9 @@ This script will create an HTML file with lists for each selected organization, 
 
     #inventory_list = [{f"{x['name']} - {x['id']}": dashboard.organizations.getOrganizationInventoryDevices(x['id'])} for x in org_list]
 
+    # Get list of EOL devices
+    eol_df = GetEolList()
+
     # Generate a new DataFrame for each Inventory List
     eol_report_list = []
     for org in inventory_list:
@@ -171,49 +231,7 @@ This script will create an HTML file with lists for each selected organization, 
             inventory_unassigned_df['model'].isin(eol_df['Product']).astype(int)
             inventory_assigned_df['model'].isin(eol_df['Product']).astype(int)
 
-            # Split SKUs that had joint announcements
-            pattern = 'MV21|MX64|MX65|MS220-8|series'
-            mask = eol_df['Product'].str.contains(pattern, case=False, na=False)
-
-            new_eol_df = eol_df[mask].copy()
-
-            # Generate entries for specific submodels to count properly
-            new_eol_df.replace(to_replace='MX64, MX64W', value = 'MX64W', inplace=True)
-            new_eol_df.replace(to_replace='MS220-8', value = 'MS220-8P', inplace=True)
-            new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
-            new_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV71', inplace=True)
-            new_eol_df.replace('MV21*', 'MV71', regex=True, inplace=True)
-
-            # Split up MS220 and MS320 switches in their specific submodels for proper counting
-            ms220_mask = new_eol_df['Product'].str.contains('MS220\xa0series', case=False, na=False)
-            ms320_mask = new_eol_df['Product'].str.contains('MS320\xa0series', case=False, na=False)
-            ms220_24_row = new_eol_df[ms220_mask].copy()
-            ms220_24_row["Product"]="MS220-24"
-            ms220_24p_row = new_eol_df[ms220_mask].copy()
-            ms220_24p_row["Product"]="MS220-24P"
-            ms220_48_row = new_eol_df[ms220_mask].copy()
-            ms220_48_row["Product"]="MS220-48"
-            ms220_48lp_row = new_eol_df[ms220_mask].copy()
-            ms220_48lp_row["Product"]="MS220-48LP"
-            ms220_48fp_row = new_eol_df[ms220_mask].copy()
-            ms220_48fp_row["Product"]="MS220-48FP"
-            ms320_24_row = new_eol_df[ms320_mask].copy()
-            ms320_24_row["Product"]="MS320-24"
-            ms320_24p_row = new_eol_df[ms320_mask].copy()
-            ms320_24p_row["Product"]="MS320-24P"
-            ms320_48_row = new_eol_df[ms320_mask].copy()
-            ms320_48_row["Product"]="MS320-48"
-            ms320_48lp_row = new_eol_df[ms320_mask].copy()
-            ms320_48lp_row["Product"]="MS320-48LP"
-            ms320_48fp_row = new_eol_df[ms320_mask].copy()
-            ms320_48fp_row["Product"]="MS320-48FP"
-
-            # Concatenate everything
-            new_eol_df = pd.concat([new_eol_df,ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
-            new_eol_df = new_eol_df[new_eol_df["Product"].str.contains("series")==False]
-            final_eol_df = pd.DataFrame()
-            final_eol_df = pd.concat([eol_df, new_eol_df])
-            final_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV21', inplace=True)
+            final_eol_df = CleanUpEolTable(eol_df)
 
             final_eol_df['Unassigned Units']=final_eol_df['Product'].map(inventory_unassigned_df['model'].value_counts())
             final_eol_df['Assigned Units']=final_eol_df['Product'].map(inventory_assigned_df['model'].value_counts())
@@ -222,9 +240,9 @@ This script will create an HTML file with lists for each selected organization, 
             eol_report = eol_report.sort_values(by=["Total Units"], ascending=False)
 
             # Filter for year, if set.
-            if FILTER_FOR_DATE is not None:
-                filter = eol_report['End-of-Support Date'].str.contains(FILTER_FOR_DATE)
-                eol_report = eol_report[filter]
+            # if FILTER_FOR_DATE is not None:
+            #     filter = eol_report['End-of-Support Date'].str.contains(FILTER_FOR_DATE)
+            #     eol_report = eol_report[filter]
 
             # Drop index column
             eol_report = eol_report.reset_index(drop=True)
