@@ -174,11 +174,21 @@ This script will create an HTML file with lists for each selected organization, 
     for org in targetOrgs:
         print(f"{i} - {org['name']}")
         i = i+1
-    choice = input("Type the number of the org or orgs (separated by commas) that you wish to obtain lifecycle information for: ")
+    choice = input("Type the number of the org or orgs (separated by commas, use - for range) that you wish to obtain lifecycle information for: ")
     if choice == '0':
         org_list = targetOrgs
     else:
-        int_choice = [int(x)-1 for x in choice.split(',')]
+        targetOrgs.insert(0,'None')
+        int_choice = []
+        choices = choice.split(',')
+        for selection in choices:
+            # selection_range = selection.split('-')
+            if len(selection.split('-')) == 1: # If selection is single val, append
+                int_choice.append(int(selection))
+            elif len(selection.split('-')) == 2: # If seelction is range, create list with range, and append
+                selection_range = [x for x in range(int(selection.split('-')[0]),int(selection.split('-')[1])+1)]
+                int_choice.extend(selection_range)
+        # int_choice = [int(x)-1 for x in choice.split(',')]
         org_map = map(targetOrgs.__getitem__, int_choice)
         org_list = list(org_map)
 
@@ -309,7 +319,7 @@ This script will create an HTML file with lists for each selected organization, 
         if isinstance(eol_report_list[i]['report'], pd.DataFrame):
             entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> {eol_report_list[i]['report'].to_html(render_links=True, escape=False, index=False)}'''
         else:
-            entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> <h3>No information due to License Expired</h3>'''
+            entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> <p style="color:red;">No information due to License Expired</p>'''
         
     settings = [
         {
