@@ -317,7 +317,10 @@ This script will create an HTML file with lists for each selected organization, 
     #     entry += subheader+table
     for i in range(len(eol_report_list)):
         if isinstance(eol_report_list[i]['report'], pd.DataFrame):
-            entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> {eol_report_list[i]['report'].to_html(render_links=True, escape=False, index=False)}'''
+            if eol_report_list[i]['report'].empty:
+                entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> <p style="color:red;">Nothing to report!</p>'''
+            else:
+                entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> {eol_report_list[i]['report'].to_html(render_links=True, escape=False, index=False)}'''
         else:
             entry += f'''<h2>{eol_report_list[i]['name']} -- OrgID: {eol_report_list[i]['id']} -- Expiration date: {eol_report_list[i]['licenseExpirationDate']}</h2> <p style="color:red;">No information due to License Expired</p>'''
         
