@@ -1,3 +1,4 @@
 *.code-workspace
-lifecycle_report.html
+*lifecycle_report.html
 *.py.old
+*.DS_Store
