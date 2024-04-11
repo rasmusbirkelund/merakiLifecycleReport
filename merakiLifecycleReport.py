@@ -57,12 +57,17 @@ def InstantiateMerakiObject(p_apikey=None):
         )
     return dashboard
 
+# Define a function to split on '-' (excluding empty strings)
+def split_on_hyphen(text):
+    if pd.isna(text):
+        return []
+    return [part for part in text.split('-') if part]
+
 
 def CleanUpEolTable(p_eol_df):
     # Split SKUs that had joint announcements
-    pattern = 'MV21|MX64|MX65|MS220-8|series'
+    pattern = 'MV21|MX64|MX65|MS220-8|series|FAMILY'
     mask = p_eol_df['Product'].str.contains(pattern, case=False, na=False)
-
     new_eol_df = p_eol_df[mask].copy()
 
     # Generate entries for specific submodels to count properly
@@ -84,16 +89,54 @@ def CleanUpEolTable(p_eol_df):
 
     ## MX65
     # new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
-    mx65_row = new_eol_df.loc[new_eol_df['Product'].str.contains("MX65")].copy()
-    mx65_row['Product'] = "MX65"
+    #mx65_row = new_eol_df.loc[new_eol_df['Product'].str.contains("MX65")].copy()
+    # mx65_row['Product'] = "MX65"
     new_eol_df.replace(to_replace='MX65', value = 'MX65W', inplace=True)
-    new_eol_df = new_eol_df._append(mx65_row)
+    #new_eol_df = new_eol_df._append(mx65_row)
     
-    # new_eol_df['Product'] = new_eol_df['Product'].apply(lambda x: x.strip())
-
-    # Split up MS220 and MS320 switches in their specific submodels for proper counting
+    # Split up famlies and series in their specific submodels for proper counting
+    ## Masks
+    ms120_mask = new_eol_df['Product'].str.contains('MS120\xa0FAMILY', case=False, na=False)
+    ms125_mask = new_eol_df['Product'].str.contains('MS125\xa0FAMILY', case=False, na=False)
     ms220_mask = new_eol_df['Product'].str.contains('MS220\xa0series', case=False, na=False)
     ms320_mask = new_eol_df['Product'].str.contains('MS320\xa0series', case=False, na=False)
+    ms390_mask = new_eol_df['Product'].str.contains('MS390\xa0FAMILY', case=False, na=False)
+    ms410_mask = new_eol_df['Product'].str.contains('MS410\xa0FAMILY', case=False, na=False)
+    ms425_mask = new_eol_df['Product'].str.contains('MS425\xa0FAMILY', case=False, na=False)
+    mg21_mask = new_eol_df['Product'].str.contains('MG21-', case=False, na=False)
+    mg21e_mask = new_eol_df['Product'].str.contains('MG21E-', case=False, na=False)
+    
+    # MS120
+    ms120_8_row = new_eol_df[ms120_mask].copy()
+    ms120_8_row["Product"]="MS120-8"
+    ms120_8lp_row = new_eol_df[ms120_mask].copy()
+    ms120_8lp_row["Product"]="MS120-8LP"
+    ms120_8fp_row = new_eol_df[ms120_mask].copy()
+    ms120_8fp_row["Product"]="MS120-8FP"
+    ms120_24_row = new_eol_df[ms120_mask].copy()
+    ms120_24_row["Product"]="MS120-24"
+    ms120_24p_row = new_eol_df[ms120_mask].copy()
+    ms120_24p_row["Product"]="MS120-24P"
+    ms120_48_row = new_eol_df[ms120_mask].copy()
+    ms120_48_row["Product"]="MS120-48"
+    ms120_48lp_row = new_eol_df[ms120_mask].copy()
+    ms120_48lp_row["Product"]="MS120-48LP"
+    ms120_48fp_row = new_eol_df[ms120_mask].copy()
+    ms120_48fp_row["Product"]="MS120-48FP"
+    
+    # MS125
+    ms125_24_row = new_eol_df[ms125_mask].copy()
+    ms125_24_row["Product"]="MS125-24"
+    ms125_24p_row = new_eol_df[ms125_mask].copy()
+    ms125_24p_row["Product"]="MS125-24P"
+    ms125_48_row = new_eol_df[ms125_mask].copy()
+    ms125_48_row["Product"]="MS125-48"
+    ms125_48lp_row = new_eol_df[ms125_mask].copy()
+    ms125_48lp_row["Product"]="MS125-48LP"
+    ms125_48fp_row = new_eol_df[ms125_mask].copy()
+    ms125_48fp_row["Product"]="MS125-48FP"
+    
+    # MS220
     ms220_24_row = new_eol_df[ms220_mask].copy()
     ms220_24_row["Product"]="MS220-24"
     ms220_24p_row = new_eol_df[ms220_mask].copy()
@@ -104,6 +147,8 @@ def CleanUpEolTable(p_eol_df):
     ms220_48lp_row["Product"]="MS220-48LP"
     ms220_48fp_row = new_eol_df[ms220_mask].copy()
     ms220_48fp_row["Product"]="MS220-48FP"
+    
+    # MS320
     ms320_24_row = new_eol_df[ms320_mask].copy()
     ms320_24_row["Product"]="MS320-24"
     ms320_24p_row = new_eol_df[ms320_mask].copy()
@@ -114,15 +159,65 @@ def CleanUpEolTable(p_eol_df):
     ms320_48lp_row["Product"]="MS320-48LP"
     ms320_48fp_row = new_eol_df[ms320_mask].copy()
     ms320_48fp_row["Product"]="MS320-48FP"
+    
+    # MS390
+    ms390_24_row = new_eol_df[ms390_mask].copy()
+    ms390_24_row["Product"]="MS390-24"
+    ms390_24p_row = new_eol_df[ms390_mask].copy()
+    ms390_24p_row["Product"]="MS390-24P"
+    ms390_24u_row = new_eol_df[ms390_mask].copy()
+    ms390_24u_row["Product"]="MS390-24U"
+    ms390_24ux_row = new_eol_df[ms390_mask].copy()
+    ms390_24ux_row["Product"]="MS390-24UX"
+    ms390_48_row = new_eol_df[ms390_mask].copy()
+    ms390_48_row["Product"]="MS390-48"
+    ms390_48p_row = new_eol_df[ms390_mask].copy()
+    ms390_48p_row["Product"]="MS390-48P"
+    ms390_48u_row = new_eol_df[ms390_mask].copy()
+    ms390_48u_row["Product"]="MS390-48U"
+    ms390_48ux_row = new_eol_df[ms390_mask].copy()
+    ms390_48ux_row["Product"]="MS390-48UX"
+    ms390_48ux2_row = new_eol_df[ms390_mask].copy()
+    ms390_48ux2_row["Product"]="MS390-48UX2"
+    
+    # MS410
+    ms410_16_row = new_eol_df[ms410_mask].copy()
+    ms410_16_row["Product"]="MS410-16"
+    ms410_32_row = new_eol_df[ms410_mask].copy()
+    ms410_32_row["Product"]="MS410-32"
+   
+    # MS425
+    ms425_16_row = new_eol_df[ms425_mask].copy()
+    ms425_16_row["Product"]="MS425-16"
+    ms425_32_row = new_eol_df[ms425_mask].copy()
+    ms425_32_row["Product"]="MS425-32"
 
+    # mg21_ww_row = new_eol_df[mg21_mask].copy()
+    # mg21_ww_row["Product"]="MS425-16"
+    
     # Concatenate everything
-    new_eol_df = new_eol_df._append([ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
-    # new_eol_df = pd.concat([new_eol_df,ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
+    new_eol_df = new_eol_df._append([ms120_8_row,ms120_8lp_row,ms120_8fp_row,ms120_24_row,ms120_24p_row,ms120_48_row,ms120_48lp_row,ms120_48fp_row,
+                                     ms125_24_row,ms125_24p_row,ms125_48_row,ms125_48lp_row,ms125_48fp_row,
+                                     ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,
+                                     ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row,
+                                     ms390_24_row,ms390_24p_row,ms390_24u_row,ms390_24ux_row,ms390_48_row,ms390_48p_row,ms390_48u_row,ms390_48ux_row,ms390_48ux2_row,
+                                     ms410_16_row,ms410_32_row,
+                                     ms425_16_row,ms425_32_row])
+    # new_eol_df = new_eol_df._append([ms220_24_row,ms220_24p_row,ms220_48_row,ms220_48lp_row,ms220_48fp_row,ms320_24_row,ms320_24p_row,ms320_48_row,ms320_48lp_row,ms320_48fp_row])
     new_eol_df = new_eol_df[new_eol_df["Product"].str.contains("series")==False]
-    # final_eol_df = pd.DataFrame()
     final_eol_df = p_eol_df._append(new_eol_df)
-    # final_eol_df = pd.concat([p_eol_df, new_eol_df])
     final_eol_df.replace(to_replace='MV21\xa0& MV71', value = 'MV21', inplace=True)
+    final_eol_df.replace(to_replace='MG21-HW-WW', value = 'MG21-WW', inplace=True)
+    final_eol_df.replace(to_replace='MG21E-HW-NA', value = 'MG21E-NA', inplace=True)
+    final_eol_df.replace(to_replace='MG21E-HW-WW', value = 'MG21E-WW', inplace=True)
+    final_eol_df.replace(to_replace='MG21-HW-NA', value = 'MG21-NA', inplace=True)
+    final_eol_df.replace(to_replace='Z3C-HW-WW', value = 'Z3C-WW', inplace=True)
+    final_eol_df.replace(to_replace='Z3C-HW-NA', value = 'Z3C-NA', inplace=True)
+    final_eol_df.replace(to_replace='Z3-HW', value = 'Z3', inplace=True)
+
+
+    # MG21
+    # df_split = final_eol_df.assign(**{final_eol_df['Product'].apply(split_on_hyphen)})
 
     return final_eol_df
 
