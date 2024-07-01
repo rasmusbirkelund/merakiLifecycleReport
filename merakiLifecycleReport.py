@@ -37,6 +37,8 @@ def GetAvailableOrganizations(p_dashboard):
                     elif mgmt['value'] == 'client blocked':
                         print(f"\tOrg: {org['name']} - Client blocked :( -- Ignored...")
                         #print(f"\t{org['name']} access denied!\t Reason: {org['management']['details'][0]['name']}")
+                    elif mgmt['name'] == 'customer number':
+                        targetOrgs.append(org)
                     else:
                         print(f"\t{org['name']} access denied!\t Reason: {mgmt['name']} - {mgmt['value']}")
                         # raise SystemError(f"Unknown error {mgmt['name']} - {mgmt['value']}")
