@@ -5,3 +5,4 @@ meraki
 requests
 bs4
 jinja2
+lxml
