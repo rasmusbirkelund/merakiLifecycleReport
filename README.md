@@ -38,7 +38,7 @@ This script allows you to obtain a report of all of the End of Sales and End of 
 export MERAKI_DASHBOARD_API_KEY=YOUR_KEY_HERE
 ```
 3. Run `pip install -r requirements.txt` from your terminal
-4. Run the script `python merakiLifecycleReport.py`
+4. Run the script `python3 merakiLifecycleReport.py`
 5. You will be prompted with a list of the organizations your API Key has access to
 6. Enter a single number, or a string of comma separated numbers depending on which orgs you want to obtain lifecycle information for (see examples below). You may also use dash (-) for ranges.
 7. The script will output a `html_report.html` file to your working folder
